@@ -1,0 +1,62 @@
+name: Credit Risk CI
+
+on:
+  push:
+    branches:
+      - master
+      - 'task-*'
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip
+        run: |
+          python -m pip install --upgrade pip
+
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+          pip install pytest flake8 nbformat
+
+      - name: Lint Python files
+        run: |
+          flake8 src --max-line-length=100 --ignore=E203,W503 || true
+
+      - name: Validate notebooks
+        run: |
+          python - <<EOF
+          import nbformat
+          from pathlib import Path
+
+          notebooks = Path("notebooks").glob("*.ipynb")
+          for notebook in notebooks:
+              nbformat.read(notebook, as_version=4)
+          print("All notebooks are valid.")
+          EOF
+
+      - name: Run tests
+        run: |
+          if [ -d tests ]; then
+            pytest tests/ -v
+          else
+            echo "No tests directory found. Skipping tests."
+          fi
