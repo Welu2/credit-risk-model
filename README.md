@@ -40,3 +40,53 @@ When choosing between a traditional **Logistic Regression with Weight of Evidenc
 | **Implementation Complexity**| Low; easily translated into simple SQL case statements or lookup scorecards. | High; requires a robust containerized infrastructure (e.g., FastAPI + Docker) to serve live inference. |
 
 **Strategic Conclusion:** While Gradient Boosting provides superior risk differentiation and minimizes credit losses, Logistic Regression with WoE remains the industry gold standard for core regulatory reporting due to its mathematical safety, transparency, and explicit compliance with consumer protection laws.
+
+## Exploratory Data Analysis (Task 2)
+
+### Dataset Overview
+
+The dataset contains 95,662 transaction records and 16 features describing customer transactions on the Xente eCommerce platform. Features include transaction identifiers, customer information, product details, transaction values, timestamps, pricing strategies, and a fraud indicator.
+
+### Key EDA Findings
+
+#### 1. Severe Class Imbalance
+
+The target variable (`FraudResult`) is highly imbalanced:
+
+* Non-fraud transactions: 95,469 (99.8%)
+* Fraud transactions: 193 (0.2%)
+
+This indicates a rare-event classification problem where metrics such as Precision, Recall, F1-Score, ROC-AUC, and PR-AUC will be more informative than accuracy.
+
+#### 2. Highly Skewed Financial Features
+
+The `Amount` and `Value` variables exhibit extreme positive skewness, suggesting that most transactions are small while a limited number are exceptionally large.
+
+#### 3. Significant Outliers
+
+Outlier analysis identified substantial numbers of extreme observations:
+
+* Amount: 25.55% outliers
+* PricingStrategy: 16.53% outliers
+* Value: 9.43% outliers
+
+These observations may represent unusual customer behavior and potentially fraudulent activity.
+
+#### 4. Strong Correlation Between Amount and Value
+
+Correlation analysis showed that `Amount` and `Value` are nearly perfectly correlated (r = 0.99), indicating significant redundancy between these features.
+
+#### 5. Constant Features
+
+Both `CurrencyCode` and `CountryCode` contain a single unique value throughout the dataset and provide no predictive information. These features are candidates for removal during preprocessing.
+
+### Implications for Feature Engineering
+
+Based on the EDA results, future work will focus on:
+
+* Removing constant features.
+* Creating temporal features from transaction timestamps.
+* Handling extreme skewness and outliers.
+* Addressing class imbalance.
+* Building customer-level RFM features.
+* Defining a proxy credit-risk target variable for downstream modeling.
