@@ -9,4 +9,4 @@ nbformat
 pytest
 flake8
 scipy
-xverse
+joblib
