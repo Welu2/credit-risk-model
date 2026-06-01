@@ -447,3 +447,232 @@ The additional column corresponds to the engineered proxy target variable.
 * Created a binary proxy credit-risk target variable.
 * Integrated the target into the processed dataset.
 * Produced a model-ready dataset for supervised credit risk modeling.
+# Task 5: Model Training and Tracking
+
+## Objective
+
+Develop a structured machine learning workflow for credit risk prediction that includes:
+
+* Data preparation and train-test splitting
+* Model training and hyperparameter tuning
+* Experiment tracking using MLflow
+* Model evaluation and comparison
+* Model versioning and registration
+* Unit testing
+
+---
+
+## Data Preparation
+
+The processed dataset from Task 4 was used for model training.
+
+The target variable is:
+
+```python
+is_high_risk
+```
+
+The dataset was split into training and testing sets using an 80/20 stratified split:
+
+```python
+train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+```
+
+Using a fixed `random_state` ensures reproducible results.
+
+---
+
+## Models Trained
+
+### Logistic Regression
+
+A baseline linear classification model commonly used in credit risk scoring.
+
+### Random Forest Classifier
+
+An ensemble learning model capable of capturing nonlinear relationships and feature interactions.
+
+---
+
+## Hyperparameter Tuning
+
+Hyperparameter optimization was performed using `GridSearchCV` with 3-fold cross-validation.
+
+### Logistic Regression
+
+```python
+{
+    "C": [0.01, 0.1, 1, 10]
+}
+```
+
+### Random Forest
+
+```python
+{
+    "n_estimators": [100, 200],
+    "max_depth": [5, 10]
+}
+```
+
+---
+
+## MLflow Experiment Tracking
+
+MLflow was used to:
+
+* Track model parameters
+* Log evaluation metrics
+* Store model artifacts
+* Compare experiment runs
+* Register the best-performing model
+
+### Logged Information
+
+#### Parameters
+
+* Logistic Regression hyperparameters
+* Random Forest hyperparameters
+
+#### Metrics
+
+* Accuracy
+* Precision
+* Recall
+* F1 Score
+* ROC-AUC
+
+#### Artifacts
+
+* Trained models
+* Classification reports
+* Best model checkpoint
+
+---
+
+## Model Evaluation Results
+
+### Logistic Regression
+
+| Metric    | Score  |
+| --------- | ------ |
+| Accuracy  | 0.9086 |
+| Precision | 0.6899 |
+| Recall    | 0.3738 |
+| F1 Score  | 0.4848 |
+| ROC-AUC   | 0.9166 |
+
+### Random Forest
+
+| Metric    | Score  |
+| --------- | ------ |
+| Accuracy  | 0.9565 |
+| Precision | 0.9091 |
+| Recall    | 0.6907 |
+| F1 Score  | 0.7850 |
+| ROC-AUC   | 0.9908 |
+
+---
+
+## Best Model Selection
+
+Models were compared using the **F1 Score**.
+
+### Selected Model: Random Forest
+
+Random Forest achieved the highest F1 Score (**0.7850**) among all evaluated models and was selected as the best-performing model.
+
+It also achieved the highest ROC-AUC (**0.9908**), indicating excellent discrimination between high-risk and low-risk customers.
+
+---
+
+## MLflow Model Registry
+
+The best-performing model was registered in the MLflow Model Registry.
+
+**Registered Model**
+
+```text
+CreditRiskModel
+```
+
+**Model Version**
+
+```text
+Version 1
+```
+
+This enables model versioning and lifecycle management for future deployment.
+
+---
+
+## Running the Training Pipeline
+
+```bash
+python src/train.py
+```
+
+The pipeline:
+
+1. Trains candidate models
+2. Performs hyperparameter tuning
+3. Logs experiments to MLflow
+4. Evaluates model performance
+5. Selects the best model
+6. Registers the best model in MLflow
+
+---
+
+## Launch MLflow UI
+
+```bash
+mlflow ui
+```
+
+Open:
+
+```text
+http://127.0.0.1:5000
+```
+
+Use the UI to:
+
+* Compare experiment runs
+* Inspect parameters and metrics
+* View artifacts
+* Manage registered models
+
+---
+
+## Unit Testing
+
+Unit tests were implemented for feature engineering utilities.
+
+### Tests Included
+
+* DateTime feature extraction
+* Aggregate feature generation
+
+Run tests:
+
+```bash
+pytest tests/
+```
+
+Output:
+
+```text
+2 passed
+```
+
+---
+
+## Conclusion
+
+A complete model training and tracking workflow was implemented for credit risk prediction. Experiments were tracked using MLflow, models were evaluated using multiple classification metrics, the best-performing Random Forest model was registered in the MLflow Model Registry as Version 1, and feature engineering functions were validated through automated unit tests.
