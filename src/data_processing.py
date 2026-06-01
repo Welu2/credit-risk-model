@@ -10,7 +10,6 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
-
 # =====================================================
 # AGGREGATE FEATURES
 # =====================================================
@@ -28,7 +27,6 @@ class AggregateFeatures(BaseEstimator, TransformerMixin):
                 StdTransactionAmount="std"
             )
             .fillna(0)
-            .reset_index()
         )
 
         return self
@@ -43,14 +41,14 @@ class AggregateFeatures(BaseEstimator, TransformerMixin):
             how="left"
         )
 
-        cols = [
+        stats_cols = [
             "TotalTransactionAmount",
             "AverageTransactionAmount",
             "TransactionCount",
             "StdTransactionAmount"
         ]
 
-        X[cols] = X[cols].fillna(0)
+        X[stats_cols] = X[stats_cols].fillna(0)
 
         return X
 
@@ -81,6 +79,7 @@ class DateTimeFeatures(BaseEstimator, TransformerMixin):
 # =====================================================
 # WOE TRANSFORMER
 # =====================================================
+
 class WoETransformer(BaseEstimator, TransformerMixin):
 
     def __init__(self, columns):
@@ -98,7 +97,7 @@ class WoETransformer(BaseEstimator, TransformerMixin):
                 "target": y
             })
 
-            grouped = temp.groupby("feature")["target"]
+            grouped = temp.groupby("feature", observed=True)["target"]
 
             good = (grouped.count() - grouped.sum()) + 0.5
             bad = grouped.sum() + 0.5
@@ -127,14 +126,17 @@ class WoETransformer(BaseEstimator, TransformerMixin):
 
         return X
 
+
 # =====================================================
-# PIPELINE
+# BUILD PIPELINE
 # =====================================================
 
 def build_pipeline():
 
+    # High-cardinality categorical columns
     woe_columns = [
         "ProviderId",
+        "ProductId",
         "ProductCategory",
         "ChannelId",
         "CountryCode"
@@ -156,33 +158,32 @@ def build_pipeline():
         "TransactionYear",
 
         "ProviderId_WOE",
+        "ProductId_WOE",
         "ProductCategory_WOE",
         "ChannelId_WOE",
         "CountryCode_WOE"
     ]
 
+    # Low-cardinality categoricals
     categorical_features = [
         "CurrencyCode"
     ]
 
-    numeric_pipeline = Pipeline(
-        steps=[
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler", StandardScaler())
-        ]
-    )
+    numeric_pipeline = Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler())
+    ])
 
-    categorical_pipeline = Pipeline(
-        steps=[
-            ("imputer", SimpleImputer(strategy="most_frequent")),
-            (
-                "encoder",
-                OneHotEncoder(
-                    handle_unknown="ignore"
-                )
+    categorical_pipeline = Pipeline([
+        ("imputer", SimpleImputer(strategy="most_frequent")),
+        (
+            "encoder",
+            OneHotEncoder(
+                handle_unknown="ignore",
+                sparse_output=False
             )
-        ]
-    )
+        )
+    ])
 
     preprocessor = ColumnTransformer(
         transformers=[
@@ -200,14 +201,12 @@ def build_pipeline():
         remainder="drop"
     )
 
-    pipeline = Pipeline(
-        steps=[
-            ("aggregate_features", AggregateFeatures()),
-            ("datetime_features", DateTimeFeatures()),
-            ("woe_transform", WoETransformer(woe_columns)),
-            ("preprocessor", preprocessor)
-        ]
-    )
+    pipeline = Pipeline([
+        ("aggregate_features", AggregateFeatures()),
+        ("datetime_features", DateTimeFeatures()),
+        ("woe_transform", WoETransformer(woe_columns)),
+        ("preprocessor", preprocessor)
+    ])
 
     return pipeline
 
@@ -246,11 +245,26 @@ if __name__ == "__main__":
 
     X_processed = pipeline.fit_transform(X, y)
 
-    print("=" * 50)
+    # Convert to DataFrame
+    feature_names = (
+        pipeline.named_steps["preprocessor"]
+        .get_feature_names_out()
+    )
+
+    X_processed = pd.DataFrame(
+        X_processed,
+        columns=feature_names,
+        index=X.index
+    )
+
+    print("=" * 60)
     print("TASK 3 COMPLETED")
-    print("=" * 50)
+    print("=" * 60)
     print(f"Original Shape : {X.shape}")
     print(f"Processed Shape: {X_processed.shape}")
+
+    print("\nGenerated Features:")
+    print(X_processed.columns.tolist())
 
     os.makedirs(
         os.path.dirname(MODEL_PATH),
@@ -258,8 +272,11 @@ if __name__ == "__main__":
     )
 
     joblib.dump(
-        pipeline,
+        {
+            "pipeline": pipeline,
+            "feature_names": feature_names
+        },
         MODEL_PATH
     )
 
-    print(f"Pipeline saved to: {MODEL_PATH}")
+    print(f"\nPipeline saved to: {MODEL_PATH}")
