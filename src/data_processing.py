@@ -8,6 +8,121 @@ from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.cluster import KMeans
+
+
+# =====================================================
+# TASK 4 - RFM TARGET ENGINEERING
+# =====================================================
+
+def create_proxy_target(df):
+
+    df = df.copy()
+
+    df["TransactionStartTime"] = pd.to_datetime(
+        df["TransactionStartTime"]
+    )
+
+    snapshot_date = (
+        df["TransactionStartTime"].max()
+        + pd.Timedelta(days=1)
+    )
+
+    rfm = (
+        df.groupby("CustomerId")
+        .agg(
+            Recency=(
+                "TransactionStartTime",
+                lambda x: (
+                    snapshot_date - x.max()
+                ).days
+            ),
+            Frequency=(
+                "TransactionId",
+                "count"
+            ),
+            Monetary=(
+                "Amount",
+                "sum"
+            )
+        )
+        .reset_index()
+    )
+
+    scaler = StandardScaler()
+
+    rfm_scaled = scaler.fit_transform(
+        rfm[
+            [
+                "Recency",
+                "Frequency",
+                "Monetary"
+            ]
+        ]
+    )
+
+    kmeans = KMeans(
+        n_clusters=3,
+        random_state=42,
+        n_init=10
+    )
+
+    rfm["Cluster"] = (
+        kmeans.fit_predict(
+            rfm_scaled
+        )
+    )
+
+    cluster_summary = (
+        rfm.groupby("Cluster")
+        [
+            [
+                "Recency",
+                "Frequency",
+                "Monetary"
+            ]
+        ]
+        .mean()
+    )
+
+    print("\nCluster Profiles")
+    print(cluster_summary)
+
+    # Least engaged cluster = high risk
+    high_risk_cluster = (
+        cluster_summary["Recency"]
+        .idxmax()
+    )
+
+    print(
+        f"\nHigh Risk Cluster: "
+        f"{high_risk_cluster}"
+    )
+
+    rfm["is_high_risk"] = (
+        rfm["Cluster"]
+        == high_risk_cluster
+    ).astype(int)
+
+    df = df.merge(
+        rfm[
+            [
+                "CustomerId",
+                "is_high_risk"
+            ]
+        ],
+        on="CustomerId",
+        how="left"
+    )
+
+    print("\nTarget Distribution")
+    print(
+        df["is_high_risk"]
+        .value_counts()
+    )
+
+    return df
+
 
 
 # =====================================================
@@ -41,14 +156,14 @@ class AggregateFeatures(BaseEstimator, TransformerMixin):
             how="left"
         )
 
-        stats_cols = [
+        cols = [
             "TotalTransactionAmount",
             "AverageTransactionAmount",
             "TransactionCount",
             "StdTransactionAmount"
         ]
 
-        X[stats_cols] = X[stats_cols].fillna(0)
+        X[cols] = X[cols].fillna(0)
 
         return X
 
@@ -66,7 +181,9 @@ class DateTimeFeatures(BaseEstimator, TransformerMixin):
 
         X = X.copy()
 
-        dt = pd.to_datetime(X["TransactionStartTime"])
+        dt = pd.to_datetime(
+            X["TransactionStartTime"]
+        )
 
         X["TransactionHour"] = dt.dt.hour
         X["TransactionDay"] = dt.dt.day
@@ -80,9 +197,13 @@ class DateTimeFeatures(BaseEstimator, TransformerMixin):
 # WOE TRANSFORMER
 # =====================================================
 
-class WoETransformer(BaseEstimator, TransformerMixin):
+class WoETransformer(
+    BaseEstimator,
+    TransformerMixin
+):
 
     def __init__(self, columns):
+
         self.columns = columns
         self.woe_maps_ = {}
 
@@ -92,22 +213,40 @@ class WoETransformer(BaseEstimator, TransformerMixin):
 
         for col in self.columns:
 
-            temp = pd.DataFrame({
-                "feature": X[col].astype(str),
-                "target": y
-            })
+            temp = pd.DataFrame(
+                {
+                    "feature":
+                        X[col].astype(str),
+                    "target":
+                        y
+                }
+            )
 
-            grouped = temp.groupby("feature", observed=True)["target"]
+            grouped = (
+                temp.groupby(
+                    "feature",
+                    observed=True
+                )["target"]
+            )
 
-            good = (grouped.count() - grouped.sum()) + 0.5
-            bad = grouped.sum() + 0.5
+            good = (
+                grouped.count()
+                - grouped.sum()
+            ) + 0.5
+
+            bad = (
+                grouped.sum()
+            ) + 0.5
 
             woe = np.log(
-                (good / good.sum()) /
+                (good / good.sum())
+                /
                 (bad / bad.sum())
             )
 
-            self.woe_maps_[col] = woe.to_dict()
+            self.woe_maps_[col] = (
+                woe.to_dict()
+            )
 
         return self
 
@@ -120,7 +259,9 @@ class WoETransformer(BaseEstimator, TransformerMixin):
             X[f"{col}_WOE"] = (
                 X[col]
                 .astype(str)
-                .map(self.woe_maps_[col])
+                .map(
+                    self.woe_maps_[col]
+                )
                 .fillna(0)
             )
 
@@ -128,12 +269,11 @@ class WoETransformer(BaseEstimator, TransformerMixin):
 
 
 # =====================================================
-# BUILD PIPELINE
+# PIPELINE
 # =====================================================
 
 def build_pipeline():
 
-    # High-cardinality categorical columns
     woe_columns = [
         "ProviderId",
         "ProductId",
@@ -164,26 +304,42 @@ def build_pipeline():
         "CountryCode_WOE"
     ]
 
-    # Low-cardinality categoricals
     categorical_features = [
         "CurrencyCode"
     ]
 
-    numeric_pipeline = Pipeline([
-        ("imputer", SimpleImputer(strategy="median")),
-        ("scaler", StandardScaler())
-    ])
-
-    categorical_pipeline = Pipeline([
-        ("imputer", SimpleImputer(strategy="most_frequent")),
-        (
-            "encoder",
-            OneHotEncoder(
-                handle_unknown="ignore",
-                sparse_output=False
+    numeric_pipeline = Pipeline(
+        [
+            (
+                "imputer",
+                SimpleImputer(
+                    strategy="median"
+                )
+            ),
+            (
+                "scaler",
+                StandardScaler()
             )
-        )
-    ])
+        ]
+    )
+
+    categorical_pipeline = Pipeline(
+        [
+            (
+                "imputer",
+                SimpleImputer(
+                    strategy="most_frequent"
+                )
+            ),
+            (
+                "encoder",
+                OneHotEncoder(
+                    handle_unknown="ignore",
+                    sparse_output=False
+                )
+            )
+        ]
+    )
 
     preprocessor = ColumnTransformer(
         transformers=[
@@ -197,16 +353,31 @@ def build_pipeline():
                 categorical_pipeline,
                 categorical_features
             )
-        ],
-        remainder="drop"
+        ]
     )
 
-    pipeline = Pipeline([
-        ("aggregate_features", AggregateFeatures()),
-        ("datetime_features", DateTimeFeatures()),
-        ("woe_transform", WoETransformer(woe_columns)),
-        ("preprocessor", preprocessor)
-    ])
+    pipeline = Pipeline(
+        [
+            (
+                "aggregate_features",
+                AggregateFeatures()
+            ),
+            (
+                "datetime_features",
+                DateTimeFeatures()
+            ),
+            (
+                "woe_transform",
+                WoETransformer(
+                    woe_columns
+                )
+            ),
+            (
+                "preprocessor",
+                preprocessor
+            )
+        ]
+    )
 
     return pipeline
 
@@ -217,7 +388,9 @@ def build_pipeline():
 
 if __name__ == "__main__":
 
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    BASE_DIR = os.path.dirname(
+        os.path.abspath(__file__)
+    )
 
     DATA_PATH = os.path.join(
         BASE_DIR,
@@ -234,49 +407,89 @@ if __name__ == "__main__":
         "data_pipeline.pkl"
     )
 
+    PROCESSED_DATA_PATH = os.path.join(
+        BASE_DIR,
+        "..",
+        "data",
+        "processed",
+        "processed_data.csv"
+    )
+
     df = pd.read_csv(DATA_PATH)
 
-    target = "FraudResult"
+    # TASK 4
+    df = create_proxy_target(df)
 
-    X = df.drop(columns=[target])
+    target = "is_high_risk"
+
+    X = df.drop(
+        columns=[
+            target,
+            "FraudResult"
+        ]
+    )
+
     y = df[target]
 
     pipeline = build_pipeline()
 
-    X_processed = pipeline.fit_transform(X, y)
+    X_processed = (
+        pipeline.fit_transform(
+            X,
+            y
+        )
+    )
 
-    # Convert to DataFrame
     feature_names = (
-        pipeline.named_steps["preprocessor"]
-        .get_feature_names_out()
+        pipeline.named_steps[
+            "preprocessor"
+        ].get_feature_names_out()
     )
 
     X_processed = pd.DataFrame(
         X_processed,
-        columns=feature_names,
-        index=X.index
+        columns=feature_names
     )
 
-    print("=" * 60)
-    print("TASK 3 COMPLETED")
-    print("=" * 60)
-    print(f"Original Shape : {X.shape}")
-    print(f"Processed Shape: {X_processed.shape}")
+    X_processed[target] = y.values
 
-    print("\nGenerated Features:")
-    print(X_processed.columns.tolist())
+    print("\nFinal Shape")
+    print(X_processed.shape)
 
     os.makedirs(
-        os.path.dirname(MODEL_PATH),
+        os.path.dirname(
+            MODEL_PATH
+        ),
+        exist_ok=True
+    )
+
+    os.makedirs(
+        os.path.dirname(
+            PROCESSED_DATA_PATH
+        ),
         exist_ok=True
     )
 
     joblib.dump(
         {
             "pipeline": pipeline,
-            "feature_names": feature_names
+            "feature_names":
+                feature_names
         },
         MODEL_PATH
     )
 
-    print(f"\nPipeline saved to: {MODEL_PATH}")
+    X_processed.to_csv(
+        PROCESSED_DATA_PATH,
+        index=False
+    )
+
+    print(
+        f"\nSaved pipeline to: "
+        f"{MODEL_PATH}"
+    )
+
+    print(
+        f"Saved processed dataset to: "
+        f"{PROCESSED_DATA_PATH}"
+    )
