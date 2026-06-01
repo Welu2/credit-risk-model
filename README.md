@@ -90,3 +90,224 @@ Based on the EDA results, future work will focus on:
 * Addressing class imbalance.
 * Building customer-level RFM features.
 * Defining a proxy credit-risk target variable for downstream modeling.
+## Feature Engineering Pipeline (Task 3)
+
+### Objective
+
+The objective of Task 3 was to build a robust, automated, and reproducible feature engineering pipeline that transforms raw transaction data into a model-ready dataset suitable for credit risk modeling.
+
+The implementation leverages Scikit-learn's `Pipeline` and `ColumnTransformer` to ensure consistency between training and future inference workflows.
+
+---
+
+### Pipeline Architecture
+
+The preprocessing workflow consists of the following stages:
+
+```text
+Raw Data
+    │
+    ▼
+Aggregate Customer Features
+    │
+    ▼
+Date-Time Feature Extraction
+    │
+    ▼
+Weight of Evidence (WoE) Encoding
+    │
+    ▼
+Missing Value Imputation
+    │
+    ▼
+Feature Scaling
+    │
+    ▼
+One-Hot Encoding
+    │
+    ▼
+Model-Ready Feature Matrix
+```
+
+---
+
+### 1. Aggregate Customer Features
+
+To capture customer transaction behavior, several customer-level aggregate features were generated using `CustomerId`.
+
+| Feature                  | Description                               |
+| ------------------------ | ----------------------------------------- |
+| TotalTransactionAmount   | Total amount transacted by a customer     |
+| AverageTransactionAmount | Mean transaction amount per customer      |
+| TransactionCount         | Number of transactions performed          |
+| StdTransactionAmount     | Standard deviation of transaction amounts |
+
+These features provide behavioral insights that may be indicative of creditworthiness and fraud risk.
+
+---
+
+### 2. Date-Time Feature Extraction
+
+The `TransactionStartTime` timestamp was decomposed into several temporal features:
+
+| Feature          | Description         |
+| ---------------- | ------------------- |
+| TransactionHour  | Hour of transaction |
+| TransactionDay   | Day of month        |
+| TransactionMonth | Month               |
+| TransactionYear  | Year                |
+
+Temporal patterns often reveal customer spending habits and fraudulent activity trends.
+
+---
+
+### 3. Weight of Evidence (WoE) Encoding
+
+High-cardinality categorical variables were transformed using Weight of Evidence (WoE).
+
+WoE is widely used in credit scoring because it:
+
+* Creates a monotonic relationship with risk.
+* Handles categorical variables efficiently.
+* Improves interpretability for logistic regression models.
+* Aligns with traditional credit-risk scorecard methodologies.
+
+The following features were encoded using WoE:
+
+* ProviderId
+* ProductId
+* ProductCategory
+* ChannelId
+* CountryCode
+
+---
+
+### 4. Categorical Encoding
+
+Low-cardinality categorical features were encoded using One-Hot Encoding.
+
+| Feature      |
+| ------------ |
+| CurrencyCode |
+
+The encoder was configured with `handle_unknown="ignore"` to support unseen categories during inference.
+
+---
+
+### 5. Missing Value Handling
+
+Missing values were handled automatically within the pipeline.
+
+#### Numerical Features
+
+Median imputation was applied:
+
+```python
+SimpleImputer(strategy="median")
+```
+
+#### Categorical Features
+
+Most-frequent imputation was applied:
+
+```python
+SimpleImputer(strategy="most_frequent")
+```
+
+This ensures the pipeline remains robust when encountering incomplete records.
+
+---
+
+### 6. Feature Standardization
+
+Numerical variables were standardized using:
+
+```python
+StandardScaler()
+```
+
+Standardization transforms features to:
+
+* Mean = 0
+* Standard Deviation = 1
+
+This prevents variables with large scales from dominating model learning.
+
+---
+
+### Generated Features
+
+The final pipeline produced 17 model-ready features:
+
+#### Numerical Features
+
+* Amount
+* Value
+* PricingStrategy
+* TotalTransactionAmount
+* AverageTransactionAmount
+* TransactionCount
+* StdTransactionAmount
+* TransactionHour
+* TransactionDay
+* TransactionMonth
+* TransactionYear
+* ProviderId_WOE
+* ProductId_WOE
+* ProductCategory_WOE
+* ChannelId_WOE
+* CountryCode_WOE
+
+#### Encoded Categorical Features
+
+* CurrencyCode_UGX
+
+---
+
+### Pipeline Output
+
+Dataset dimensions before and after feature engineering:
+
+| Dataset           | Shape        |
+| ----------------- | ------------ |
+| Raw Dataset       | (95,662, 15) |
+| Processed Dataset | (95,662, 17) |
+
+The increase in feature count reflects the addition of engineered behavioral, temporal, and WoE-transformed variables.
+
+---
+
+### Reproducibility
+
+The complete preprocessing workflow was encapsulated within a single Scikit-learn Pipeline object and serialized using Joblib.
+
+```python
+joblib.dump(
+    {
+        "pipeline": pipeline,
+        "feature_names": feature_names
+    },
+    "models/data_pipeline.pkl"
+)
+```
+
+This allows the exact same transformations to be applied consistently during:
+
+* Model training
+* Validation
+* Production inference
+
+---
+
+### Key Outcomes
+
+* Built a fully automated feature engineering pipeline.
+* Generated customer behavioral features.
+* Extracted temporal transaction features.
+* Applied Weight of Evidence encoding for credit-risk modeling.
+* Implemented robust missing-value handling.
+* Standardized numerical variables.
+* Produced a reproducible, model-ready dataset.
+* Saved the fitted preprocessing pipeline for downstream modeling tasks.
+
+The resulting dataset serves as the foundation for proxy target construction, customer risk segmentation, and credit score model development in subsequent tasks.
