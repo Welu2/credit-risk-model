@@ -2,3 +2,7 @@ data/
 .ipynb_checkpoints/
 __pycache__/
 *.pyc
+*.db
+saved_model
+models
+mlruns
