@@ -188,7 +188,7 @@ for model_name, config in models.items():
 
         mlflow.sklearn.log_model(
             sk_model=model,
-            name="model"
+            artifact_path="model"
         )
 
         print(f"\n{model_name}")
