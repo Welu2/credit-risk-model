@@ -8,7 +8,7 @@ from src.api.pydantic_models import PredictionRequest, PredictionResponse
 
 app = FastAPI(title="Credit Risk API", version="1.0.0")
 
-# Read container environment variable first, 
+# Read container environment variable first
 # then fallback to local server registry
 MODEL_URI = os.getenv("MODEL_URI", "models:/CreditRiskModel/latest")
 model = mlflow.sklearn.load_model(MODEL_URI)
