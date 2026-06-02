@@ -10,3 +10,7 @@ pytest
 flake8
 scipy
 joblib
+mlflow
+fastapi
+uvicorn
+pydantic

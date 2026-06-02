@@ -670,9 +670,223 @@ Output:
 ```text
 2 passed
 ```
+# Task 6: Model Deployment and Containerization
+
+## Objective
+
+Deploy the trained credit risk model as a production-ready REST API and containerize the application using Docker.
+
+The deployed service allows users to submit processed customer transaction features and receive:
+
+* Probability of being a high-risk customer
+* Binary risk prediction
+
+---
+
+## FastAPI Deployment
+
+A REST API was implemented using FastAPI.
+
+### Endpoints
+
+#### Health Check
+
+```http
+GET /
+```
+
+Response:
+
+```json
+{
+  "status": "healthy"
+}
+```
+
+#### Risk Prediction
+
+```http
+POST /predict
+```
+
+Request:
+
+```json
+{
+  "num__Amount": 1000,
+  "num__Value": 1000,
+  "num__PricingStrategy": 2,
+  "num__TotalTransactionAmount": 5000,
+  "num__AverageTransactionAmount": 1000,
+  "num__TransactionCount": 5,
+  "num__StdTransactionAmount": 100,
+  "num__TransactionHour": 14,
+  "num__TransactionDay": 15,
+  "num__TransactionMonth": 6,
+  "num__TransactionYear": 2026,
+  "num__ProviderId_WOE": 0.3,
+  "num__ProductId_WOE": 0.2,
+  "num__ProductCategory_WOE": 0.1,
+  "num__ChannelId_WOE": 0.4,
+  "num__CountryCode_WOE": 0.5,
+  "cat__CurrencyCode_UGX": 1
+}
+```
+
+Response:
+
+```json
+{
+  "risk_probability": 0.1777,
+  "prediction": 0
+}
+```
+
+---
+
+## Model Loading
+
+The API loads the best-performing model generated during Task 5.
+
+```python
+joblib.load("models/best_model.pkl")
+```
+
+The model returns class probabilities using:
+
+```python
+predict_proba()
+```
+
+The probability of belonging to the high-risk class is returned as:
+
+```python
+risk_probability
+```
+
+A threshold of 0.5 is used to generate the binary prediction:
+
+```python
+prediction = 1 if probability >= 0.5 else 0
+```
+
+---
+
+## API Documentation
+
+FastAPI automatically generates interactive API documentation.
+
+Swagger UI:
+
+```text
+http://localhost:8000/docs
+```
+
+ReDoc:
+
+```text
+http://localhost:8000/redoc
+```
+
+These interfaces allow users to test endpoints without additional tools.
+
+---
+
+## Docker Containerization
+
+The application was containerized using Docker to ensure portability and reproducibility.
+
+### Dockerfile
+
+The Docker image:
+
+1. Uses Python 3.12 Slim
+2. Installs project dependencies
+3. Copies project files
+4. Starts the FastAPI application using Uvicorn
+
+Build image:
+
+```bash
+docker build -t credit-risk-api .
+```
+
+Run container:
+
+```bash
+docker run -p 8000:8000 credit-risk-api
+```
+
+---
+
+## Docker Compose
+
+Docker Compose was configured to simplify deployment.
+
+Start the application:
+
+```bash
+docker compose up --build
+```
+
+Stop the application:
+
+```bash
+docker compose down
+```
+
+---
+
+## Container Verification
+
+The Docker container was successfully built and executed.
+
+Verification steps:
+
+1. Build Docker image
+2. Start container
+3. Access Swagger UI
+4. Submit prediction requests
+5. Receive valid probability scores and predictions
+
+Example output:
+
+```json
+{
+  "risk_probability": 0.17772244008956561,
+  "prediction": 0
+}
+```
+
+This confirms successful model inference inside the containerized environment.
+
+---
+
+## Project Structure
+
+```text
+credit-risk-model/
+│
+├── data/
+├── models/
+│   └── best_model.pkl
+│
+├── src/
+│   ├── api/
+│   │   ├── main.py
+│   │   └── pydantic_models.py
+│   │
+│   └── train.py
+│
+├── tests/
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+└── README.md
+```
 
 ---
 
 ## Conclusion
 
-A complete model training and tracking workflow was implemented for credit risk prediction. Experiments were tracked using MLflow, models were evaluated using multiple classification metrics, the best-performing Random Forest model was registered in the MLflow Model Registry as Version 1, and feature engineering functions were validated through automated unit tests.
+Task 6 successfully deployed the trained credit risk model as a FastAPI service and containerized the application using Docker. The API exposes prediction endpoints that return both risk probabilities and binary classifications, while Docker ensures consistent execution across development and production environments.

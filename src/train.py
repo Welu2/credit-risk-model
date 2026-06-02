@@ -1,25 +1,20 @@
 import os
+
 import joblib
-import pandas as pd
 import mlflow
 import mlflow.sklearn
-
-from sklearn.model_selection import (
-    train_test_split,
-    GridSearchCV
-)
-
-from sklearn.linear_model import LogisticRegression
+import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
+    classification_report,
+    f1_score,
     precision_score,
     recall_score,
-    f1_score,
     roc_auc_score,
-    classification_report
 )
+from sklearn.model_selection import GridSearchCV, train_test_split
 
 # =====================================================
 # PATHS
@@ -28,18 +23,10 @@ from sklearn.metrics import (
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 DATA_PATH = os.path.join(
-    BASE_DIR,
-    "..",
-    "data",
-    "processed",
-    "processed_data.csv"
+    BASE_DIR, "..", "data", "processed", "processed_data.csv"
 )
 
-MODEL_DIR = os.path.join(
-    BASE_DIR,
-    "..",
-    "models"
-)
+MODEL_DIR = os.path.join(BASE_DIR, "..", "models")
 
 os.makedirs(MODEL_DIR, exist_ok=True)
 
@@ -59,11 +46,7 @@ y = df[target]
 # =====================================================
 
 X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.2,
-    random_state=42,
-    stratify=y
+    X, y, test_size=0.2, random_state=42, stratify=y
 )
 
 # =====================================================
@@ -72,13 +55,12 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 mlflow.set_tracking_uri("sqlite:///mlflow.db")
 
-mlflow.set_experiment(
-    "Credit Risk Modeling"
-)
+mlflow.set_experiment("Credit Risk Modeling")
 
 # =====================================================
 # EVALUATION FUNCTION
 # =====================================================
+
 
 def evaluate_model(model):
 
@@ -91,7 +73,7 @@ def evaluate_model(model):
         "precision": precision_score(y_test, y_pred),
         "recall": recall_score(y_test, y_pred),
         "f1_score": f1_score(y_test, y_pred),
-        "roc_auc": roc_auc_score(y_test, y_prob)
+        "roc_auc": roc_auc_score(y_test, y_prob),
     }
 
     report = classification_report(y_test, y_pred)
@@ -105,24 +87,13 @@ def evaluate_model(model):
 
 models = {
     "LogisticRegression": {
-        "model": LogisticRegression(
-            max_iter=1000,
-            random_state=42
-        ),
-        "params": {
-            "C": [0.01, 0.1, 1, 10]
-        }
+        "model": LogisticRegression(max_iter=1000, random_state=42),
+        "params": {"C": [0.01, 0.1, 1, 10]},
     },
-
     "RandomForest": {
-        "model": RandomForestClassifier(
-            random_state=42
-        ),
-        "params": {
-            "n_estimators": [100, 200],
-            "max_depth": [5, 10]
-        }
-    }
+        "model": RandomForestClassifier(random_state=42),
+        "params": {"n_estimators": [100, 200], "max_depth": [5, 10]},
+    },
 }
 
 # =====================================================
@@ -143,13 +114,10 @@ for model_name, config in models.items():
             param_grid=config["params"],
             cv=3,
             scoring="f1",
-            n_jobs=-1
+            n_jobs=-1,
         )
 
-        grid.fit(
-            X_train,
-            y_train
-        )
+        grid.fit(X_train, y_train)
 
         model = grid.best_estimator_
 
@@ -159,17 +127,13 @@ for model_name, config in models.items():
         # Log parameters
         # -------------------------------------
 
-        mlflow.log_params(
-            grid.best_params_
-        )
+        mlflow.log_params(grid.best_params_)
 
         # -------------------------------------
         # Log metrics
         # -------------------------------------
 
-        mlflow.log_metrics(
-            metrics
-        )
+        mlflow.log_metrics(metrics)
 
         # -------------------------------------
         # Save classification report
@@ -209,15 +173,9 @@ for model_name, config in models.items():
 # SAVE BEST MODEL LOCALLY
 # =====================================================
 
-best_model_path = os.path.join(
-    MODEL_DIR,
-    "best_model.pkl"
-)
+best_model_path = os.path.join(MODEL_DIR, "best_model.pkl")
 
-joblib.dump(
-    best_model,
-    best_model_path
-)
+joblib.dump(best_model, best_model_path)
 
 print("\n==========================")
 print(f"Best Model: {best_model_name}")
@@ -231,11 +189,7 @@ print("==========================")
 model_uri = f"runs:/{best_run_id}/model"
 
 registered_model = mlflow.register_model(
-    model_uri=model_uri,
-    name="CreditRiskModel"
+    model_uri=model_uri, name="CreditRiskModel"
 )
 
-print(
-    f"Registered model version: "
-    f"{registered_model.version}"
-)
+print(f"Registered model version: " f"{registered_model.version}")
