@@ -5,8 +5,10 @@ import pandas as pd
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# Added a space after the comma and added '# noqa: E402' to ignore the path ordering rule
-from src.data_processing import AggregateFeatures, DateTimeFeatures  # noqa: E402
+from src.data_processing import (  # noqa: E402
+    AggregateFeatures,
+    DateTimeFeatures,
+)
 
 
 def test_datetime_features():
