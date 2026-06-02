@@ -150,7 +150,10 @@ for model_name, config in models.items():
         # Log model
         # -------------------------------------
 
-        mlflow.sklearn.log_model(sk_model=model, name="model")
+        mlflow.sklearn.log_model(
+            sk_model=model,
+            artifact_path="model"
+        )
 
         print(f"\n{model_name}")
         print(metrics)
